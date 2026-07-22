@@ -11,17 +11,14 @@ DOWN_MULTIPLIER = 10 / 11
 
 
 def r2(value: float) -> float:
-    """실제 계산값은 소수점 셋째 자리에서 반올림합니다."""
     return round(float(value), DECIMALS)
 
 
 def comma(value: float, decimals: int = 2) -> str:
-    """천 단위 쉼표를 적용한 숫자 문자열."""
     return f"{float(value):,.{decimals}f}"
 
 
 def parse_number(text: str, field_name: str) -> float:
-    """쉼표가 포함된 입력값을 실수로 변환합니다."""
     cleaned = str(text).replace(",", "").strip()
 
     if cleaned == "":
@@ -35,7 +32,10 @@ def parse_number(text: str, field_name: str) -> float:
         ) from exc
 
 
-def initialize_state(initial_capital: float, initial_price: float) -> None:
+def initialize_state(
+    initial_capital: float,
+    initial_price: float,
+) -> None:
     initial_capital = r2(initial_capital)
     initial_price = r2(initial_price)
 
@@ -51,7 +51,10 @@ def initialize_state(initial_capital: float, initial_price: float) -> None:
     st.session_state.trade_history = []
 
     st.session_state.daily_history = [
-        make_daily_record(action="시작", action_amount=0.0)
+        make_daily_record(
+            action="시작",
+            action_amount=0.0,
+        )
     ]
 
 
@@ -69,25 +72,34 @@ def ensure_state() -> None:
         st.session_state.sell_amount_text = "20,000,000"
 
     if "day" not in st.session_state:
-        initialize_state(100_000_000.0, 200_000.0)
+        initialize_state(
+            100_000_000.0,
+            200_000.0,
+        )
 
 
 def portfolio_values() -> dict[str, float]:
     market_value = r2(
-        st.session_state.shares * st.session_state.price
+        st.session_state.shares
+        * st.session_state.price
     )
 
     total_assets = r2(
-        st.session_state.cash + market_value
+        st.session_state.cash
+        + market_value
     )
 
     unrealized_pnl = r2(
-        (st.session_state.price - st.session_state.avg_price)
+        (
+            st.session_state.price
+            - st.session_state.avg_price
+        )
         * st.session_state.shares
     )
 
     total_pnl = r2(
-        total_assets - st.session_state.initial_capital
+        total_assets
+        - st.session_state.initial_capital
     )
 
     if st.session_state.initial_capital == 0:
@@ -125,7 +137,9 @@ def make_daily_record(
         "평균매수가": r2(st.session_state.avg_price),
         "평가금액": values["market_value"],
         "총자산": values["total_assets"],
-        "실현손익": r2(st.session_state.realized_pnl),
+        "실현손익": r2(
+            st.session_state.realized_pnl
+        ),
         "미실현손익": values["unrealized_pnl"],
         "누적손익": values["total_pnl"],
         "누적수익률(%)": values["total_return"],
@@ -154,7 +168,8 @@ def buy(amount: float) -> tuple[bool, str]:
         return False, "주가가 0 이하이므로 매수할 수 없습니다."
 
     purchased_shares = r2(
-        amount / st.session_state.price
+        amount
+        / st.session_state.price
     )
 
     if purchased_shares <= 0:
@@ -166,7 +181,8 @@ def buy(amount: float) -> tuple[bool, str]:
     )
 
     new_cost = r2(
-        old_cost + amount
+        old_cost
+        + amount
     )
 
     new_shares = r2(
@@ -177,12 +193,14 @@ def buy(amount: float) -> tuple[bool, str]:
     st.session_state.shares = new_shares
 
     st.session_state.cash = r2(
-        st.session_state.cash - amount
+        st.session_state.cash
+        - amount
     )
 
     if new_shares > 0:
         st.session_state.avg_price = r2(
-            new_cost / new_shares
+            new_cost
+            / new_shares
         )
     else:
         st.session_state.avg_price = 0.0
@@ -191,14 +209,19 @@ def buy(amount: float) -> tuple[bool, str]:
         {
             "일차": st.session_state.day,
             "구분": "매수",
-            "체결주가": r2(st.session_state.price),
+            "체결주가": r2(
+                st.session_state.price
+            ),
             "거래금액": amount,
             "거래수량": purchased_shares,
             "실현손익": 0.0,
         }
     )
 
-    append_daily_record("매수", amount)
+    append_daily_record(
+        "매수",
+        amount,
+    )
 
     return True, (
         f"{comma(amount, 0)}원 매수 완료 "
@@ -230,7 +253,8 @@ def sell(amount: float) -> tuple[bool, str]:
         proceeds = max_sell_value
     else:
         sold_shares = r2(
-            amount / st.session_state.price
+            amount
+            / st.session_state.price
         )
 
         sold_shares = min(
@@ -280,7 +304,9 @@ def sell(amount: float) -> tuple[bool, str]:
         {
             "일차": st.session_state.day,
             "구분": trade_type,
-            "체결주가": r2(st.session_state.price),
+            "체결주가": r2(
+                st.session_state.price
+            ),
             "거래금액": proceeds,
             "거래수량": r2(sold_shares),
             "실현손익": realized,
@@ -329,6 +355,7 @@ def next_day(
         st.session_state.last_move = (
             "상승 (+10%)"
         )
+
     else:
         st.session_state.price = r2(
             st.session_state.price
@@ -377,7 +404,9 @@ def formatted_daily_table(
             )
 
     if "보유수량" in result.columns:
-        result["보유수량"] = result["보유수량"].map(
+        result["보유수량"] = result[
+            "보유수량"
+        ].map(
             lambda value: comma(value)
         )
 
@@ -407,7 +436,9 @@ def formatted_trade_table(
             )
 
     if "거래수량" in result.columns:
-        result["거래수량"] = result["거래수량"].map(
+        result["거래수량"] = result[
+            "거래수량"
+        ].map(
             lambda value: comma(value)
         )
 
@@ -440,7 +471,8 @@ def metric_font_size(value: str) -> float:
 
 def escape_html(text: str) -> str:
     return (
-        text.replace("&", "&amp;")
+        str(text)
+        .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
     )
@@ -456,21 +488,18 @@ def show_metric(
     safe_label = escape_html(label)
     safe_value = escape_html(value)
 
-    container.markdown(
-        f"""
-        <div class="custom-metric">
-            <div class="custom-metric-label">
-                {safe_label}
-            </div>
+    html = (
+        '<div class="custom-metric">'
+        f'<div class="custom-metric-label">{safe_label}</div>'
+        f'<div class="custom-metric-value" '
+        f'style="font-size:{font_size}rem;">'
+        f'{safe_value}'
+        '</div>'
+        '</div>'
+    )
 
-            <div
-                class="custom-metric-value"
-                style="font-size:{font_size}rem;"
-            >
-                {safe_value}
-            </div>
-        </div>
-        """,
+    container.markdown(
+        html,
         unsafe_allow_html=True,
     )
 
@@ -484,47 +513,47 @@ st.set_page_config(
 
 st.markdown(
     """
-    <style>
-    .custom-metric {
-        min-width: 0;
-        width: 100%;
-        padding: 0.15rem 0 0.55rem 0;
-    }
+<style>
+.custom-metric {
+    min-width: 0;
+    width: 100%;
+    padding: 0.15rem 0 0.55rem 0;
+}
 
+.custom-metric-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 0.22rem;
+    white-space: nowrap;
+}
+
+.custom-metric-value {
+    width: 100%;
+    line-height: 1.12;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    letter-spacing: -0.045em;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1000px) {
     .custom-metric-label {
-        font-size: 0.88rem;
-        font-weight: 600;
-        margin-bottom: 0.22rem;
-        white-space: nowrap;
+        font-size: 0.78rem;
     }
 
     .custom-metric-value {
-        width: 100%;
-        line-height: 1.12;
-        white-space: nowrap;
-        overflow: visible;
-        text-overflow: clip;
-        letter-spacing: -0.045em;
-        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.065em;
     }
+}
 
-    @media (max-width: 1000px) {
-        .custom-metric-label {
-            font-size: 0.78rem;
-        }
-
-        .custom-metric-value {
-            letter-spacing: -0.065em;
-        }
+@media (max-width: 700px) {
+    .custom-metric-label {
+        font-size: 0.72rem;
     }
-
-    @media (max-width: 700px) {
-        .custom-metric-label {
-            font-size: 0.72rem;
-        }
-    }
-    </style>
-    """,
+}
+</style>
+""",
     unsafe_allow_html=True,
 )
 
@@ -684,13 +713,17 @@ top3 = st.columns(2)
 show_metric(
     top3[0],
     "실현손익",
-    format_won(st.session_state.realized_pnl),
+    format_won(
+        st.session_state.realized_pnl
+    ),
 )
 
 show_metric(
     top3[1],
     "미실현손익",
-    format_won(values["unrealized_pnl"]),
+    format_won(
+        values["unrealized_pnl"]
+    ),
 )
 
 
@@ -877,6 +910,7 @@ with tab2:
         st.info(
             "아직 거래 내역이 없습니다."
         )
+
     else:
         st.dataframe(
             formatted_trade_table(
