@@ -1,5 +1,5 @@
 import random
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 import streamlit as st
@@ -11,7 +11,7 @@ DOWN_MULTIPLIER = 10 / 11
 
 
 def r2(value: float) -> float:
-    """소수점 셋째 자리에서 반올림."""
+    """실제 계산값은 소수점 셋째 자리에서 반올림합니다."""
     return round(float(value), DECIMALS)
 
 
@@ -21,7 +21,7 @@ def comma(value: float, decimals: int = 2) -> str:
 
 
 def parse_number(text: str, field_name: str) -> float:
-    """쉼표가 포함된 입력값을 실수로 변환."""
+    """쉼표가 포함된 입력값을 실수로 변환합니다."""
     cleaned = str(text).replace(",", "").strip()
     if cleaned == "":
         raise ValueError(f"{field_name}을 입력해주세요.")
@@ -147,7 +147,7 @@ def buy(amount: float) -> tuple[bool, str]:
     append_daily_record("매수", amount)
 
     return True, (
-        f"{comma(amount)}원 매수 완료 "
+        f"{comma(amount, 0)}원 매수 완료 "
         f"({comma(purchased_shares)}주)"
     )
 
@@ -202,13 +202,17 @@ def sell(amount: float) -> tuple[bool, str]:
 
     action_text = "전량 매도" if full_sale else "매도"
     return True, (
-        f"{action_text} 완료: {comma(proceeds)}원 "
-        f"({comma(sold_shares)}주, 실현손익 {comma(realized)}원)"
+        f"{action_text} 완료: {comma(proceeds, 0)}원 "
+        f"({comma(sold_shares)}주, 실현손익 {comma(realized, 0)}원)"
     )
 
 
-def next_day() -> str:
-    if random.random() < 0.5:
+def next_day(direction: Literal["random", "up", "down"] = "random") -> str:
+    """랜덤 또는 지정된 방향으로 하루를 진행합니다."""
+    if direction == "random":
+        direction = "up" if random.random() < 0.5 else "down"
+
+    if direction == "up":
         st.session_state.price = r2(
             st.session_state.price * UP_MULTIPLIER
         )
@@ -225,7 +229,8 @@ def next_day() -> str:
 
 
 def format_won(value: float) -> str:
-    return f"{comma(value)}원"
+    """원 단위 화면 표시는 소수점 없이 표시합니다."""
+    return f"{comma(value, 0)}원"
 
 
 def formatted_daily_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -236,7 +241,7 @@ def formatted_daily_table(df: pd.DataFrame) -> pd.DataFrame:
     ]
     for col in money_columns:
         if col in result.columns:
-            result[col] = result[col].map(lambda x: comma(x))
+            result[col] = result[col].map(lambda x: comma(x, 0))
     if "보유수량" in result.columns:
         result["보유수량"] = result["보유수량"].map(lambda x: comma(x))
     if "누적수익률(%)" in result.columns:
@@ -250,7 +255,7 @@ def formatted_trade_table(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
     for col in ["체결주가", "거래금액", "실현손익"]:
         if col in result.columns:
-            result[col] = result[col].map(lambda x: comma(x))
+            result[col] = result[col].map(lambda x: comma(x, 0))
     if "거래수량" in result.columns:
         result["거래수량"] = result["거래수량"].map(lambda x: comma(x))
     return result
@@ -262,12 +267,56 @@ st.set_page_config(
     layout="wide",
 )
 
+# 좁은 브라우저에서도 metric 값이 ...으로 잘리지 않고 자동 축소되도록 설정합니다.
+st.markdown(
+    """
+    <style>
+    [data-testid="stMetric"] {
+        min-width: 0;
+    }
+
+    [data-testid="stMetricValue"] {
+        min-width: 0;
+        overflow: visible !important;
+    }
+
+    [data-testid="stMetricValue"] > div {
+        font-size: clamp(1.05rem, 2.45vw, 2.35rem) !important;
+        line-height: 1.15 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        max-width: none !important;
+        letter-spacing: -0.035em;
+    }
+
+    [data-testid="stMetricLabel"] {
+        min-width: 0;
+    }
+
+    @media (max-width: 1100px) {
+        [data-testid="stMetricValue"] > div {
+            font-size: clamp(0.92rem, 2.15vw, 1.75rem) !important;
+            letter-spacing: -0.055em;
+        }
+    }
+
+    @media (max-width: 760px) {
+        [data-testid="stMetricValue"] > div {
+            font-size: clamp(0.82rem, 3.3vw, 1.35rem) !important;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 ensure_state()
 
 st.title("📈 가상 주식시장 시뮬레이터")
 st.caption(
     "매일 50% 확률로 +10%, 50% 확률로 -9.0909% 움직입니다. "
-    "모든 값은 소수점 셋째 자리에서 반올림하며 수수료는 0원입니다."
+    "실제 계산값은 소수점 셋째 자리에서 반올림하며 수수료는 0원입니다."
 )
 
 with st.sidebar:
@@ -332,9 +381,27 @@ control_col, buy_col, sell_col = st.columns([1, 1.4, 1.4])
 
 with control_col:
     st.subheader("날짜 진행")
+
     if st.button("⏭️ 내일로 넘기기", use_container_width=True):
-        next_day()
+        next_day("random")
         st.rerun()
+
+    forced_cols = st.columns(2)
+    with forced_cols[0]:
+        if st.button(
+            "📈 내일로 넘기기\n(상승)",
+            use_container_width=True,
+        ):
+            next_day("up")
+            st.rerun()
+
+    with forced_cols[1]:
+        if st.button(
+            "📉 내일로 넘기기\n(하락)",
+            use_container_width=True,
+        ):
+            next_day("down")
+            st.rerun()
 
 with buy_col:
     st.subheader("매수")
